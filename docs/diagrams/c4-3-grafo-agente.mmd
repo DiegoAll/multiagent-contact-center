@@ -1,0 +1,15 @@
+flowchart TD
+  START([START]) --> ig["input_guard<br/>check_input (sin LLM)"]
+  ig -->|"bloqueado"| fin["finalize"]
+  ig -->|"permitido"| idn["identify<br/>get_customer por email (tool MCP)"]
+  idn --> sup["supervisor<br/>regla HUMAN o 1 llamada LLM"]
+  sup -->|"knowledge"| ka["knowledge_agent<br/>RAG + 1 llamada LLM"]
+  sup -->|"both"| ka
+  sup -->|"transactions"| ta["transactions_agent<br/>create_agent + tools MCP guardadas"]
+  sup -->|"human"| hh["human_handoff<br/>create_ticket + escalate_to_human"]
+  ka -->|"route = both"| ta
+  ka -->|"route = knowledge"| qa["quality_agent<br/>check_output (sin LLM)"]
+  ta --> qa
+  hh --> qa
+  qa --> fin
+  fin --> FIN([END])

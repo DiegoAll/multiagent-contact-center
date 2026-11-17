@@ -1,0 +1,4 @@
+cover.out
+*.test
+.git
+docs/swagger.json

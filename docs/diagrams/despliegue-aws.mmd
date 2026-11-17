@@ -1,0 +1,45 @@
+flowchart TB
+  user["Usuario"] --> r53["Route 53"]
+  r53 --> cf["CloudFront<br/>+ AWS WAF"]
+  cf -->|"/* (SPA)"| s3[("S3<br/>build de Vite")]
+  cf -->|"/api/*"| alb
+
+  subgraph vpc["VPC (2 AZ)"]
+    subgraph pub["Subredes públicas"]
+      alb["Application Load Balancer<br/>(solo desde CloudFront)"]
+      nat["NAT Gateway"]
+    end
+    subgraph priv["Subredes privadas: aplicación (ECS Fargate)"]
+      api["Servicio api<br/>Go :8080"]
+      agent["Servicio agent<br/>FastAPI :8000"]
+      mcp["Servicio mcp<br/>Go :8081"]
+      cm["Cloud Map<br/>service discovery interno"]
+    end
+    subgraph data["Subredes privadas: datos"]
+      rds[("RDS PostgreSQL<br/>+ pgvector")]
+    end
+  end
+
+  alb --> api
+  api -->|"agent.internal"| agent
+  agent -->|"mcp.internal"| mcp
+  api --> rds
+  mcp --> rds
+  agent --> rds
+  api -.-> cm
+  agent -.-> cm
+  agent -->|"salida por NAT"| nat
+  nat --> ext["Proveedor LLM externo<br/>(OpenAI / DeepSeek)"]
+  agent -.->|"alternativa"| bedrock["Amazon Bedrock<br/>(VPC endpoint)"]
+
+  sm["Secrets Manager<br/>API keys y tokens internos"] -.-> api
+  sm -.-> agent
+  sm -.-> mcp
+  ecr["ECR<br/>imágenes"] -.-> api
+  ecr -.-> agent
+  ecr -.-> mcp
+  api -.-> cw["CloudWatch Logs y métricas"]
+  agent -.-> cw
+  mcp -.-> cw
+  agent -.-> xr["X-Ray / OpenTelemetry (ADOT)"]
+  agent -.-> ls["LangSmith (SaaS, opcional)"]

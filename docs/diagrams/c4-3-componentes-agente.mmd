@@ -1,0 +1,29 @@
+flowchart TB
+  apix["«Contenedor»<br/>API REST (Go)"]
+  mcpx["«Contenedor»<br/>Servidor MCP"]
+  dbx[("«Contenedor»<br/>PostgreSQL + pgvector")]
+  llmx["«Externo»<br/>Proveedor LLM / embeddings"]
+  lsx["«Externo»<br/>LangSmith"]
+
+  subgraph agentc["Contenedor: Servicio del agente (Python + FastAPI)"]
+    http["«Componente»<br/><b>main.py (FastAPI)</b><br/>POST /chat, /healthz<br/>Verifica X-Internal-Token, timeout global"]
+    lg["«Componente»<br/><b>graph.py (LangGraph)</b><br/>Grafo multiagente con estado<br/>y checkpointer por sesión"]
+    guard["«Componente»<br/><b>guardrails.py</b><br/>check_input / check_output<br/>(reglas, sin LLM)"]
+    tools["«Componente»<br/><b>tools.py</b><br/>ToolProvider (MCP) + guard_tools<br/>(autorización en código)"]
+    rag["«Componente»<br/><b>rag.py</b><br/>Ingesta de /knowledge, retriever PGVector"]
+    llmf["«Componente»<br/><b>llm.py</b><br/>Fábrica ChatOpenAI (openai | deepseek)<br/>y embeddings"]
+    prompts["«Componente»<br/><b>prompts.py</b><br/>Prompts de sistema (sin datos no confiables)"]
+  end
+
+  apix -->|"POST /chat"| http
+  http --> lg
+  lg --> guard
+  lg --> prompts
+  lg --> tools
+  lg --> rag
+  lg --> llmf
+  tools -->|"MCP Streamable HTTP"| mcpx
+  rag -->|"similarity search"| dbx
+  rag --> llmf
+  llmf --> llmx
+  lg -.->|"trazas si LANGSMITH_TRACING=true"| lsx

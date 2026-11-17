@@ -1,0 +1,35 @@
+flowchart LR
+  spa["«Contenedor»<br/>Frontend SPA"]
+  agentx["«Contenedor»<br/>Servicio del agente"]
+  dbx[("«Contenedor»<br/>PostgreSQL")]
+
+  subgraph apibin["Binario cmd/api: API REST (Go + chi)"]
+    router["«Componente»<br/><b>Router chi + middlewares</b><br/>RequestID, Recoverer, SecurityHeaders,<br/>RequestLogger, Timeout, APIKeyAuth, RateLimit"]
+    ctrl["«Componente»<br/><b>Controllers</b><br/>customer, order, ticket, chat<br/>(dependen solo de interfaces de service)"]
+    svcs["«Componente»<br/><b>Services (interfaces + implementación)</b><br/>CustomerService, OrderService,<br/>TicketService, ChatService<br/>Validación y reglas de negocio"]
+    acl["«Componente»<br/><b>agentclient</b><br/>Implementa AgentClient (HTTP)"]
+  end
+
+  subgraph mcpbin["Binario cmd/mcp: servidor MCP (Go + mcp-go)"]
+    mcpsrv["«Componente»<br/><b>mcpserver</b><br/>ToolSpec declarativa → tools MCP y catálogo<br/>Token interno X-Internal-Token"]
+  end
+
+  subgraph compartido["Compartido por ambos binarios"]
+    repoi["«Interfaces»<br/><b>repository</b><br/>CustomerRepository, OrderRepository,<br/>TicketRepository"]
+    repoc["«Componente»<br/><b>repository/postgres</b><br/>Implementación concreta (pgx stdlib)"]
+    mig["«Componente»<br/><b>migrate + migrations</b><br/>goose: esquema y seed del CRM simulado"]
+    dom["«Componente»<br/><b>domain</b><br/>Entidades y errores de dominio"]
+  end
+
+  spa -->|"/api/v1/*"| router
+  router --> ctrl
+  ctrl --> svcs
+  svcs -->|"depende de la interfaz"| repoi
+  repoc -.->|"implementa"| repoi
+  repoc --> dbx
+  mig -->|"migra al arrancar la API"| dbx
+  svcs --> acl
+  acl -->|"POST /chat"| agentx
+  agentx -->|"MCP"| mcpsrv
+  mcpsrv -->|"reutiliza los mismos services"| svcs
+  svcs -.-> dom

@@ -1,0 +1,28 @@
+flowchart TB
+  user["Navegador del desarrollador"]
+
+  subgraph host["Host: docker compose"]
+    subgraph red["Red interna de compose"]
+      fe["frontend<br/>nginx + build de Vite<br/>proxy /api → api:8080<br/>inyecta X-API-Key"]
+      api["api<br/>Go + chi<br/>:8080"]
+      mcp["mcp<br/>Go + mcp-go<br/>:8081"]
+      agent["agent<br/>FastAPI + LangGraph<br/>:8000"]
+      db[("db<br/>pgvector/pgvector:pg16<br/>:5432")]
+      vol[("Volumen<br/>datos de PostgreSQL")]
+    end
+  end
+
+  llm["Proveedor LLM / embeddings (internet)"]
+  ls["LangSmith (internet, opcional)"]
+
+  user -->|"localhost:3000"| fe
+  user -.->|"localhost:8080 (solo desarrollo)"| api
+  fe --> api
+  api -->|"AGENT_URL=http://agent:8000"| agent
+  agent -->|"MCP_URL=http://mcp:8081/mcp"| mcp
+  api --> db
+  mcp --> db
+  agent --> db
+  db --- vol
+  agent --> llm
+  agent -.-> ls

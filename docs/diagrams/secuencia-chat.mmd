@@ -1,0 +1,35 @@
+sequenceDiagram
+  autonumber
+  actor C as Cliente
+  participant S as SPA (nginx)
+  participant A as API Go
+  participant G as Agente (FastAPI + LangGraph)
+  participant M as Servidor MCP
+  participant L as Proveedor LLM
+  participant D as PostgreSQL
+
+  C->>S: "¿Dónde está mi pedido?" (con su email)
+  S->>A: POST /api/v1/chat (X-API-Key)
+  A->>A: Valida mensaje, email y session_id
+  A->>G: POST /chat (X-Internal-Token)
+  G->>G: input_guard (reglas)
+  G->>M: get_customer(email)
+  M->>D: SELECT cliente
+  D-->>M: cliente
+  M-->>G: customer_id
+  G->>L: supervisor: clasificar intención
+  L-->>G: TRANSACTIONS
+  loop Hasta max_tool_steps
+    G->>L: transactions_agent (tools permitidas)
+    L-->>G: tool_call list_customer_orders
+    G->>M: list_customer_orders(customer_id forzado)
+    M->>D: SELECT pedidos
+    D-->>M: pedidos
+    M-->>G: resultado JSON
+  end
+  G->>L: respuesta final
+  L-->>G: texto
+  G->>G: quality_agent (check_output)
+  G-->>A: reply, agents_used, tool_calls, sources
+  A-->>S: ChatResponse
+  S-->>C: Respuesta y traza del agente

@@ -1,0 +1,107 @@
+@import 'tailwindcss';
+
+/* Paleta NovaTel: índigo eléctrico sobre fondo frío, con amarillo y coral como acentos comerciales. */
+:root {
+  color-scheme: light;
+  --paper: #f3f4fa;
+  --surface: #ffffff;
+  --ink: #0e1330;
+  --muted: #576082;
+  --line: #e0e3f1;
+  --brand: #3a2bf2;
+  --brand-deep: #1b1370;
+  --brand-soft: #eceaff;
+  --sun: #ffc62b;
+  --sun-soft: #fff3cf;
+  --sun-ink: #6b4a00;
+  --coral: #ff4b5c;
+  --danger: #b8283a;
+}
+
+@theme inline {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-soft: var(--brand-soft);
+  --color-sun: var(--sun);
+  --color-sun-soft: var(--sun-soft);
+  --color-sun-ink: var(--sun-ink);
+  --color-coral: var(--coral);
+  --color-danger: var(--danger);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Movimiento: solo el cambio de diapositiva y el indicador "escribiendo". */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.slide-in {
+  animation: slide-in 0.45s ease-out both;
+}
+@keyframes draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.trace-line {
+  transform-origin: left;
+  animation: draw 0.6s ease-out both;
+}
+@keyframes pulse-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+.typing span {
+  animation: pulse-dot 1.2s infinite;
+}
+.typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .slide-in,
+  .trace-line,
+  .typing span {
+    animation: none;
+  }
+}

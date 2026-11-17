@@ -1,0 +1,21 @@
+flowchart TB
+  cliente["«Persona»<br/><b>Cliente</b><br/>Consulta políticas, pedidos y tickets"]
+  asesor["«Persona»<br/><b>Asesor humano</b><br/>Atiende los casos escalados"]
+
+  subgraph limite["Límite del sistema"]
+    lab["«Sistema de software»<br/><b>Atento Agent Lab</b><br/>Agente de atención al cliente:<br/>chat, RAG, tools MCP, multiagente"]
+  end
+
+  llm["«Sistema externo»<br/><b>Proveedor LLM</b><br/>OpenAI o DeepSeek<br/>(API compatible con OpenAI)"]
+  emb["«Sistema externo»<br/><b>API de embeddings</b><br/>OpenAI (o 'hash' offline para demo)"]
+  ls["«Sistema externo»<br/><b>LangSmith</b><br/>Trazas, datasets y evaluación"]
+  crm["«Sistema externo (futuro)»<br/><b>CRM / Ticketing</b><br/>Salesforce, HubSpot, Zendesk<br/>Hoy: simulado con PostgreSQL"]
+  cc["«Sistema externo (futuro)»<br/><b>Plataforma de contact center</b><br/>Genesys, Twilio, Amazon Connect"]
+
+  cliente -->|"Conversa por chat web"| lab
+  lab -->|"Marca tickets como escalados"| asesor
+  lab -->|"Completions y function calling"| llm
+  lab -->|"Vectoriza consultas y documentos"| emb
+  lab -->|"Envía trazas (opcional)"| ls
+  lab -.->|"Reemplazo del CRM simulado"| crm
+  lab -.->|"Canal de voz/chat y handoff real"| cc

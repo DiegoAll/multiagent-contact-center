@@ -1,0 +1,117 @@
+# Atento Agent Lab · entorno local.
+#   cp .env.example .env   # completa los valores OBLIGATORIOS
+#   docker compose up --build
+#
+# Exposición: solo `frontend` (3000) y `api` (8080) se publican, y únicamente en
+# 127.0.0.1. El agente, el MCP y la base de datos quedan en la red interna.
+# Nota: el frontend inyecta X-API-Key en cada petición; quien alcance el puerto
+# 3000 usa la API con esa clave. Por eso se enlaza solo a loopback.
+
+name: atento-agent-lab
+
+x-backend-env: &backend-env
+  DATABASE_URL: postgres://atento:${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env}@db:5432/atento?sslmode=disable
+  INTERNAL_TOKEN: ${INTERNAL_TOKEN:?define INTERNAL_TOKEN en .env}
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: atento
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: atento
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atento -d atento"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build: ./backend
+    environment:
+      <<: *backend-env
+      PORT: "8080"
+      AGENT_URL: http://agent:8000
+      API_KEY: ${API_KEY:?define API_KEY en .env}
+      SWAGGER_FILE: /app/docs/swagger.json
+      RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-60}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # El API aplica las migraciones goose antes de escuchar: healthy = BD migrada.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/readyz >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  mcp:
+    build: ./backend
+    command: ["/app/mcp"]
+    environment:
+      <<: *backend-env
+      MCP_PORT: "8081"
+    depends_on:
+      api:
+        condition: service_healthy # necesita el esquema ya migrado
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/healthz >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  agent:
+    build: ./agent
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?define INTERNAL_TOKEN en .env}
+      MCP_URL: http://mcp:8081/mcp
+      VECTOR_DATABASE_URL: postgresql+psycopg://atento:${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env}@db:5432/atento
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
+      EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-openai}
+      INGEST_ON_STARTUP: ${INGEST_ON_STARTUP:-true}
+      CANARY_TOKEN: ${CANARY_TOKEN:?define CANARY_TOKEN en .env}
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-atento-agent-lab}
+    depends_on:
+      db:
+        condition: service_healthy
+      mcp:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status == 200 else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    environment:
+      API_UPSTREAM: api:8080
+      API_KEY: ${API_KEY:?define API_KEY en .env}
+    ports:
+      - "127.0.0.1:3000:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:

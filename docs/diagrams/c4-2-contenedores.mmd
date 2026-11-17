@@ -1,0 +1,25 @@
+flowchart TB
+  cliente["«Persona»<br/><b>Cliente</b>"]
+
+  subgraph sistema["Sistema: Atento Agent Lab"]
+    spa["«Contenedor: React + Vite + TypeScript + Tailwind»<br/><b>Frontend SPA</b><br/>Chat y panel de trazas del agente<br/>(servido por nginx)"]
+    api["«Contenedor: Go + chi»<br/><b>API REST</b><br/>Capas controller / service / repository<br/>Swagger en /swagger"]
+    mcp["«Contenedor: Go + mcp-go»<br/><b>Servidor MCP</b><br/>Tools del CRM simulado<br/>Streamable HTTP en /mcp"]
+    agent["«Contenedor: Python + FastAPI + LangChain + LangGraph»<br/><b>Servicio del agente</b><br/>Supervisor + especialistas, RAG y guardrails"]
+    db[("«Contenedor: PostgreSQL + pgvector»<br/><b>Base de datos</b><br/>CRM simulado (goose) y vector store")]
+  end
+
+  llm["«Externo»<br/><b>Proveedor LLM</b>"]
+  emb["«Externo»<br/><b>API de embeddings</b>"]
+  ls["«Externo»<br/><b>LangSmith</b>"]
+
+  cliente -->|"HTTPS"| spa
+  spa -->|"/api/v1/* (nginx inyecta X-API-Key)"| api
+  api -->|"POST /chat + X-Internal-Token"| agent
+  agent -->|"MCP Streamable HTTP + X-Internal-Token"| mcp
+  api -->|"SQL (pgx)"| db
+  mcp -->|"SQL (pgx)"| db
+  agent -->|"Búsqueda vectorial (PGVector)"| db
+  agent -->|"HTTPS"| llm
+  agent -->|"HTTPS"| emb
+  agent -.->|"HTTPS (LANGSMITH_TRACING)"| ls
